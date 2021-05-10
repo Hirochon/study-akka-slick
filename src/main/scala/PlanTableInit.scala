@@ -9,7 +9,7 @@ import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 import scala.language.implicitConversions
 
-object TodoInit extends App{
+object PlanTableInit extends App{
 
   val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
   implicit def LocalDateTimeToStr(d: LocalDateTime): String = {
@@ -23,7 +23,7 @@ object TodoInit extends App{
     strToLocalDateTime
   )
 
-  class TodoList(tag: Tag) extends Table[(Int, String, Int, LocalDateTime, Int, LocalDateTime)](tag, _tableName="plan") {
+  class PlanTable(tag: Tag) extends Table[(Int, String, Int, LocalDateTime, Int, LocalDateTime)](tag, _tableName="plan") {
     def id: Rep[Int] = column[Int]("id", O.PrimaryKey, O.AutoInc)
     def todo: Rep[String] = column[String]("todo", SqlType("VARCHAR(256)"))
     def urgency: Rep[Int] = column[Int]("urgency")
@@ -33,7 +33,7 @@ object TodoInit extends App{
     def * = (id, todo, urgency, deadline, status, createdAt)
   }
 
-  val todoList = TableQuery[TodoList]
+  val todoList = TableQuery[PlanTable]
 
   val db = Database.forConfig(path="myDB")
   try {

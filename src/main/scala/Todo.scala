@@ -66,12 +66,6 @@ object Todo {
     Future { Done }
   }
 
-//  def fetchAction: Future[Option[Action]] = {
-//    val planAction = db.run(planTable.result)
-//    val plan = Await.result(planAction, Duration.Inf)
-//    val preprocessedPlan: Plan = plan.toList
-//    Future(Option(preprocessedPlan))
-//  }
   def fetchAction: Future[Seq[GetAction]] = {
     val tmpPlanAction = db.run(planTable.result)
     val planAction = Await.result(tmpPlanAction, Duration.Inf)
@@ -87,19 +81,26 @@ object Todo {
     Future(plan)
   }
 
-  def updateItem(fetchItem: FetchPlan): Future[Done] = {
-    val query = for { item <- planTable if item.id === fetchItem.id} yield item.todo
-    val updateAction = query.update(fetchItem.todo)
+  def updateItem(fetchAction: GetAction): Future[Done] = {
+    val query = planTable
+      .filter(_.id === fetchAction.id)
+      .map(action => (action.todo, action.urgency, action.deadline, action.status, action.createdAt))
+    val updateAction = query
+      .update((
+        fetchAction.todo,
+        fetchAction.urgency,
+        fetchAction.deadline,
+        fetchAction.status,
+        fetchAction.createdAt
+        ))
     val updateFuture = db.run(updateAction)
     Await.result(updateFuture, Duration.Inf)
-
 //    val sql = query.updateStatement
 //    println(sql)
-
     Future { Done }
   }
 
-  def deleteItem(fetchItem: DeleteAction): Future[Done] = {
+  def deleteAction(fetchItem: DeleteAction): Future[Done] = {
     val query = planTable.filter(_.id === fetchItem.id)
     val deleteAction = query.delete
     val deleteFuture = db.run(deleteAction)
@@ -118,14 +119,14 @@ object Todo {
           path("create-action") {
             entity(as[Action]) { action =>
               val saved: Future[Done] = saveAction(action)
-              onSuccess(saved) { _ => // we are not interested in the result value `Done` but only in the fact that it was successful
+              onSuccess(saved) { _ =>
                 complete("todo created!")
               }
             }
           }
         },
         get {
-          path("todo-list") {
+          path("plan") {
             val fetched: Future[Seq[GetAction]] = fetchAction
             // ここで並び替えとか噛ませたい
             onSuccess(fetched) { item =>
@@ -134,20 +135,20 @@ object Todo {
           }
         },
         put {
-          path("update-todo") {
-            entity(as[FetchPlan]) { item =>
+          path("update-action") {
+            entity(as[GetAction]) { item =>
               val saved: Future[Done] = updateItem(item)
-              onSuccess(saved) { _ => // we are not interested in the result value `Done` but only in the fact that it was successful
+              onSuccess(saved) { _ =>
                 complete("todo updated!")
               }
             }
           }
         },
         delete {
-          path("delete-todo") {
+          path("delete-action") {
             entity(as[DeleteAction]) { item =>
-              val saved: Future[Done] = deleteItem(item)
-              onSuccess(saved) { _ => // we are not interested in the result value `Done` but only in the fact that it was successful
+              val saved: Future[Done] = deleteAction(item)
+              onSuccess(saved) { _ =>
                 complete("todo deleted!")
               }
             }

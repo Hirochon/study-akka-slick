@@ -17,11 +17,13 @@ trait JsonSupport extends SprayJsonSupport {
 
   implicit object StatusFormat extends RootJsonFormat[Status] {
     def write(status: Status): JsValue = status match {
+      // 言うたらここで何にでも返し方を指定できる
       case Failed     => JsString("Failed")   // JobRepositoryで定義してたcase class。
       case Successful => JsString("Successful")   // JobRepositoryで定義してたcase class。
     }
 
     def read(json: JsValue): Status = json match {
+      // 言うたらここで何にでも受け取り方を指定できる。
       case JsString("Failed")     => Failed   // JobRepositoryで定義してたcase class。
       case JsString("Successful") => Successful   // JobRepositoryで定義してたcase class。
       case _                      => throw new DeserializationException("Status unexpected")

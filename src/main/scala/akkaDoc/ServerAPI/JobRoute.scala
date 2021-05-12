@@ -22,15 +22,38 @@ class JobRoute(buildJobRepository: ActorRef[JobRepository.Command])(implicit sys
   // タイムアウトが過ぎても応答がない場合、質問はTimeoutExceptionで失敗します。
   implicit val timeout: Timeout = 3.seconds
 
-  lazy val theJobRoutes: Route =
+  lazy val theJobRoutes: Route = {
+    // pathとは違う。
+    // 与えられた PathMatcher に対して、RequestContext のマッチしなかったパスのプレフィックスをマッチさせて消費し、
+    // (引数のタイプに応じて) 一つ以上の値を抽出する可能性があります。
+    // スラッシュは自動的に追加
     pathPrefix("jobs") {
+      // 連結する
       concat(
+        // RequestContextのマッチしていないパスが空である場合、
+        // つまり、リクエストのパスがより上位のpathまたはpathPrefixディレクティブによって完全にマッチしている場合にのみ、
+        // リクエストを内部のルートに渡します。
         pathEnd {
+          // 連結する
           concat(
             post {
+              // シリアライズ(アンマーシャル)
+              // アンマーシャルで成功したjobを渡す。
+              // 成功しないという渡し方もある https://doc.akka.io/docs/akka-http/current/routing-dsl/directives/marshalling-directives/entity.html
               entity(as[JobRepository.Job]) { job =>
-                val operationPerformed: Future[JobRepository.Response] =
+                // sealed trait Response
+                // case object OK extends Response
+                // final case class KO(reason: String) extends Response
+                val operationPerformed: Future[JobRepository.Response] = {
+                  // case AddJob(job, replyTo) if jobs.contains(job.id) =>
+                  //    replyTo ! KO("Job already exists")
+                  //    Behaviors.same
+                  //  case AddJob(job, replyTo) =>
+                  //    replyTo ! OK
+                  //    JobRepository(jobs.+(job.id -> job))
                   buildJobRepository.ask(JobRepository.AddJob(job, _))
+                }
+                // おもろい！！！！
                 onSuccess(operationPerformed) {
                   case JobRepository.OK         => complete("Job added")
                   case JobRepository.KO(reason) => complete(StatusCodes.InternalServerError -> reason)
@@ -47,6 +70,7 @@ class JobRoute(buildJobRepository: ActorRef[JobRepository.Command])(implicit sys
             }
           )
         },
+        // ネストさせる代わりに&演算子で短縮
         (get & path(LongNumber)) { id =>
           val maybeJob: Future[Option[JobRepository.Job]] =
             buildJobRepository.ask(JobRepository.GetJobById(id, _))
@@ -56,4 +80,5 @@ class JobRoute(buildJobRepository: ActorRef[JobRepository.Command])(implicit sys
         }
       )
     }
+  }
 }
